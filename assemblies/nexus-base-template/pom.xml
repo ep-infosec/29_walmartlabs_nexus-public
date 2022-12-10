@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Sonatype Nexus (TM) Open Source Version
+    Copyright (c) 2008-present Sonatype, Inc.
+    All rights reserved. Includes the third-party code listed at http://links.sonatype.com/products/nexus/oss/attributions.
+
+    This program and the accompanying materials are made available under the terms of the Eclipse Public License Version 1.0,
+    which accompanies this distribution and is available at http://www.eclipse.org/legal/epl-v10.html.
+
+    Sonatype Nexus (TM) Professional Version is available from Sonatype, Inc. "Sonatype" and "Sonatype Nexus" are trademarks
+    of Sonatype, Inc. Apache Maven is a trademark of the Apache Software Foundation. M2eclipse is a trademark of the
+    Eclipse Foundation. All other trademarks are the property of their respective owners.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.sonatype.nexus.assemblies</groupId>
+    <artifactId>nexus-assemblies</artifactId>
+    <version>3.2.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>nexus-base-template</artifactId>
+  <name>${project.groupId}:${project.artifactId}</name>
+  <packaging>karaf-assembly</packaging>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.sonatype.nexus</groupId>
+      <artifactId>nexus-main</artifactId>
+      <scope>provided</scope>
+    </dependency>
+
+    <!--
+    Framework/startup features (compile-scope)
+    -->
+    <dependency>
+      <groupId>org.apache.karaf.features</groupId>
+      <artifactId>framework</artifactId>
+      <type>kar</type>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.karaf.features</groupId>
+      <artifactId>standard</artifactId>
+      <classifier>features</classifier>
+      <type>xml</type>
+    </dependency>
+
+    <dependency>
+      <groupId>org.sonatype.nexus.assemblies</groupId>
+      <artifactId>nexus-system-feature</artifactId>
+      <classifier>features</classifier>
+      <type>xml</type>
+    </dependency>
+
+    <!--
+    Installed features (runtime-scope)
+    -->
+    <dependency>
+      <groupId>org.sonatype.nexus.assemblies</groupId>
+      <artifactId>nexus-jetty-feature</artifactId>
+      <classifier>features</classifier>
+      <type>xml</type>
+      <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.sonatype.nexus.assemblies</groupId>
+      <artifactId>nexus-base-feature</artifactId>
+      <classifier>features</classifier>
+      <type>xml</type>
+      <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.sonatype.nexus</groupId>
+      <artifactId>nexus-oss-edition</artifactId>
+      <classifier>features</classifier>
+      <type>xml</type>
+      <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.sonatype.nexus.assemblies</groupId>
+      <artifactId>nexus-core-feature</artifactId>
+      <classifier>features</classifier>
+      <type>xml</type>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!--
+    HACK: expose orientdb distribution to extract studio.zip plugin
+    -->
+    <dependency>
+      <groupId>com.orientechnologies</groupId>
+      <artifactId>orientdb-community</artifactId>
+      <type>zip</type>
+      <scope>runtime</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!--
+      Included to get access to nexus-orient-console. This provides a convenience
+      jar for starting up the orientdb console app.
+    -->
+    <dependency>
+      <groupId>org.sonatype.nexus</groupId>
+      <artifactId>nexus-orient-console</artifactId>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.gmavenplus</groupId>
+        <artifactId>gmavenplus-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>pax-url-settings</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>execute</goal>
+            </goals>
+            <configuration>
+              <scripts>
+                <script>
+                  // workaround https://issues.apache.org/jira/browse/KARAF-4288
+                  def settingsFile = session.request.userSettingsFile
+                  if (settingsFile?.isFile()) {
+                    // pass custom settings file to pax-url as karaf-maven-plugin may need it to fetch content
+                    System.setProperty('org.ops4j.pax.url.mvn.settings', session.request.userSettingsFile.path)
+                  }
+                </script>
+              </scripts>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>configure-assembly</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <!-- install additional boot jars -->
+                <copy file="${org.sonatype.nexus:nexus-main:jar}"
+                      tofile="${project.build.directory}/assembly/lib/boot/nexus-main.jar"/>
+
+                <!-- install additional framework jars -->
+                <copy file="${javax.annotation:javax.annotation-api:jar}"
+                      todir="${project.build.directory}/assembly/lib"/>
+                <copy file="${com.google.code.findbugs:jsr305:jar}"
+                      todir="${project.build.directory}/assembly/lib"/>
+                <copy file="${org.bouncycastle:bcprov-jdk15on:jar}"
+                      todir="${project.build.directory}/assembly/lib"/>
+                <copy file="${org.bouncycastle:bcpkix-jdk15on:jar}"
+                      todir="${project.build.directory}/assembly/lib"/>
+                <copy file="${org.bouncycastle:bcpg-jdk15on:jar}"
+                      todir="${project.build.directory}/assembly/lib"/>
+
+                <!-- put nexus-orient-console in lib/support along with its dependencies -->
+                <copy file="${org.sonatype.nexus:nexus-orient-console:jar}"
+                      tofile="${project.build.directory}/assembly/lib/support/nexus-orient-console.jar"/>
+                <delete dir="${project.build.directory}/assembly/system/org/sonatype/nexus/nexus-orient-console"/>
+
+                <!-- delete some cruft which karaf includes by default -->
+                <delete>
+                  <fileset dir="${project.build.directory}/assembly">
+                    <include name="bin/*"/>
+                    <include name="**/README"/>
+                    <include name="etc/all.policy"/>
+                    <include name="etc/distribution.info"/>
+                    <include name="etc/equinox-debug.properties"/>
+                    <include name="etc/regions-config.xml"/>
+                    <include name="etc/org.apache.felix.eventadmin.impl.EventAdmin"/>
+                    <include name="etc/org.apache.karaf.kar.cfg"/>
+                    <include name="etc/org.apache.karaf.features.obr.cfg"/>
+                    <include name="etc/org.apache.karaf.features.repos.cfg"/>
+                    <include name="etc/org.apache.karaf.command.acl.*.cfg"/>
+                    <include name="etc/jmx.acl.*.cfg"/>
+                    <include name="etc/org.ops4j.pax.logging.cfg"/>
+                    <include name="etc/users.properties"/>
+                    <include name="etc/keys.properties"/>
+                  </fileset>
+                </delete>
+
+                <!-- delete java.ext.dirs and java.endorsed.dirs -->
+                <delete dir="${project.build.directory}/assembly/lib/ext"/>
+                <delete dir="${project.build.directory}/assembly/lib/endorsed"/>
+
+                <!-- disable log4j backend so we can use logback -->
+                <replaceregexp file="${project.build.directory}/assembly/etc/startup.properties"
+                               match="(.*pax-logging-service.*)" replace="# \1"/>
+
+                <!-- disable automatic updates and retries -->
+                <concat destfile="${project.build.directory}/assembly/etc/org.apache.karaf.features.cfg" append="true">
+                  serviceRequirements=disable${line.separator}updateSnapshots=false${line.separator}scheduleMaxRun=1
+                </concat>
+
+                <!--
+                HACK: Include orientdb-studio plugin.
+                -->
+                <unzip src="${com.orientechnologies:orientdb-community:zip}"
+                       dest="${project.build.directory}/sonatype-work/nexus3/orient/plugins">
+                  <mergemapper to="studio.zip"/>
+                  <patternset>
+                    <include name="*/plugins/studio-*.zip"/>
+                  </patternset>
+                </unzip>
+
+                <!-- move karaf config to etc/karaf -->
+                <move todir="${project.build.directory}/assembly/etc/karaf">
+                  <fileset dir="${project.build.directory}/assembly/etc"/>
+                </move>
+
+                <!-- overlay customizations -->
+                <copy todir="${project.build.directory}/assembly" overwrite="true">
+                  <fileset dir="${project.basedir}/src/main/resources/overlay"/>
+                </copy>
+
+                <!-- sonatype-work placeholders/templates -->
+                <copy todir="${project.build.directory}/sonatype-work" overwrite="true">
+                  <fileset dir="${project.basedir}/src/main/resources/sonatype-work"/>
+                </copy>
+
+                <!-- workaround maven-assembly-plugin bug where lineEnding configuration for fileSets is ineffective -->
+                <fixcrlf srcdir="${project.build.directory}/assembly/bin" includes="*" excludes="*.bat" eol="unix"/>
+                <fixcrlf srcdir="${project.build.directory}/assembly/bin" includes="*.bat" eol="dos"/>
+
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.karaf.tooling</groupId>
+        <artifactId>karaf-maven-plugin</artifactId>
+        <configuration>
+          <!-- disable archive generation, will use maven-assembly-plugin -->
+          <archiveTarGz>false</archiveTarGz>
+          <archiveZip>false</archiveZip>
+          <!-- disable include of target/classes, we use overlay instead -->
+          <includeBuildOutputDirectory>false</includeBuildOutputDirectory>
+          <!-- override expected osgi.ee to match compilation target -->
+          <javase>1.8</javase>
+          <startupFeatures>
+            <feature>wrap</feature>
+            <feature>nexus-system-feature</feature>
+          </startupFeatures>
+          <bootFeatures>
+            <feature>bundle</feature>
+            <feature>config</feature>
+            <feature>diagnostic</feature>
+            <feature>feature</feature>
+            <feature>jaas</feature>
+            <feature>log</feature>
+            <feature>package</feature>
+            <feature>shell</feature>
+            <feature>service</feature>
+            <feature>system</feature>
+            <feature>nexus-jetty-feature</feature>
+          </bootFeatures>
+          <installedFeatures>
+            <feature>management</feature>
+            <feature>ssh</feature>
+            <feature>nexus-core-feature</feature>
+            <feature>nexus-oss-edition</feature>
+          </installedFeatures>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>bundle</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <appendAssemblyId>false</appendAssemblyId>
+              <descriptors>
+                <descriptor>${project.basedir}/src/main/assembly/bundle.xml</descriptor>
+              </descriptors>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>
